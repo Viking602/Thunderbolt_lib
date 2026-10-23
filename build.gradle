@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.141'
+    id 'net.neoforged.moddev' version '2.0.148'
 }
 
 version = mod_version
@@ -50,6 +50,7 @@ neoForge {
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
+sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
 
 repositories {
     mavenLocal()
@@ -63,6 +64,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     // AE2 Lightning Tech — place the ae2lt jar in the libs/ folder for development builds.
     // Download from: https://github.com/MOAKIEE/AE2-Lightning-Tech/releases
     // The AppEng-facing bridge code is reflective, so no direct AE2 Maven dependency is
@@ -70,6 +73,14 @@ dependencies {
     if (project.file('libs').exists() && !fileTree(dir: 'libs', include: '*.jar').isEmpty()) {
         compileOnly fileTree(dir: 'libs', include: '*.jar')
     }
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+}
+
+tasks.named('jar', Jar) {
+    from('LICENSE') { into 'META-INF' }
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

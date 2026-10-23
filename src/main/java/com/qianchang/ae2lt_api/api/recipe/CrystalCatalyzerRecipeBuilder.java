@@ -1,6 +1,7 @@
 package com.qianchang.ae2lt_api.api.recipe;
 
 import com.google.gson.JsonObject;
+import com.qianchang.ae2lt_api.api.lightning.LightningEnergyTier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
@@ -21,10 +22,11 @@ import java.util.Objects;
  * <pre>{@code
  * {
  *   "type": "ae2lt:crystal_catalyzer",
- *   "catalyst": { "item": "minecraft:amethyst_block" },
+ *   "catalyst": "minecraft:amethyst_block",
  *   "catalystCount": 1,
  *   "output": { "id": "minecraft:amethyst_shard", "count": 1 },
- *   "energyPerCycle": 100000
+ *   "energyPerCycle": 100000,
+ *   "lightningCost": 4
  * }
  * }</pre>
  *
@@ -33,10 +35,11 @@ import java.util.Objects;
  * {
  *   "type": "ae2lt:crystal_catalyzer",
  *   "mode": "dust",
- *   "catalyst": { "item": "minecraft:amethyst_block" },
+ *   "catalyst": "minecraft:amethyst_block",
  *   "catalystCount": 1,
  *   "output": { "tag": "c:dusts/amethyst", "count": 1 },
- *   "energyPerCycle": 100000
+ *   "energyPerCycle": 100000,
+ *   "lightningCost": 4
  * }
  * }</pre>
  */
@@ -58,6 +61,11 @@ public final class CrystalCatalyzerRecipeBuilder {
     private String outputTag;
     private int outputCount = 1;
     private int energyPerCycle = 100;
+    private int lightningCost = 4;
+    private LightningEnergyTier lightningTier = LightningEnergyTier.HIGH_VOLTAGE;
+    @Nullable
+    private String inputFluid;
+    private int inputFluidAmount;
     @Nullable
     private String mode;
 
@@ -135,6 +143,26 @@ public final class CrystalCatalyzerRecipeBuilder {
         return this;
     }
 
+    /** Sets lightning consumed per cycle (must be positive, default: 4). */
+    public CrystalCatalyzerRecipeBuilder lightningCost(int amount) {
+        if (amount <= 0) throw new IllegalArgumentException("lightningCost must be positive");
+        lightningCost = amount;
+        return this;
+    }
+
+    public CrystalCatalyzerRecipeBuilder lightningTier(LightningEnergyTier tier) {
+        lightningTier = Objects.requireNonNull(tier, "tier");
+        return this;
+    }
+
+    /** Sets fluid consumed per cycle; omission keeps the native default of 1000 mB water. */
+    public CrystalCatalyzerRecipeBuilder inputFluid(String fluidId, int amount) {
+        if (amount <= 0) throw new IllegalArgumentException("fluid amount must be positive");
+        inputFluid = Objects.requireNonNull(fluidId, "fluidId");
+        inputFluidAmount = amount;
+        return this;
+    }
+
     public JsonObject toJson() {
         if (outputItem == null && outputTag == null) {
             throw new IllegalStateException("An output item or tag must be set");
@@ -147,13 +175,7 @@ public final class CrystalCatalyzerRecipeBuilder {
         }
 
         if (catalystItem != null || catalystTag != null) {
-            JsonObject catalyst = new JsonObject();
-            if (catalystItem != null) {
-                catalyst.addProperty("item", catalystItem);
-            } else {
-                catalyst.addProperty("tag", catalystTag);
-            }
-            json.add("catalyst", catalyst);
+            json.addProperty("catalyst", catalystItem != null ? catalystItem : "#" + catalystTag);
             json.addProperty("catalystCount", catalystCount);
         }
 
@@ -167,6 +189,14 @@ public final class CrystalCatalyzerRecipeBuilder {
         json.add("output", output);
 
         json.addProperty("energyPerCycle", energyPerCycle);
+        json.addProperty("lightningCost", lightningCost);
+        json.addProperty("lightningTier", lightningTier.getSerializedName());
+        if (inputFluid != null) {
+            var fluid = new JsonObject();
+            fluid.addProperty("id", inputFluid);
+            fluid.addProperty("amount", inputFluidAmount);
+            json.add("inputFluid", fluid);
+        }
 
         return json;
     }

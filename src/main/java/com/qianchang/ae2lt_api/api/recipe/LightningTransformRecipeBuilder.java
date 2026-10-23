@@ -130,13 +130,7 @@ public final class LightningTransformRecipeBuilder {
     private record InputSpec(String itemId, String tagId, int count) {
         JsonObject toJson() {
             JsonObject obj = new JsonObject();
-            JsonObject ingredient = new JsonObject();
-            if (itemId != null) {
-                ingredient.addProperty("item", itemId);
-            } else {
-                ingredient.addProperty("tag", tagId);
-            }
-            obj.add("ingredient", ingredient);
+            obj.addProperty("ingredient", itemId != null ? itemId : "#" + tagId);
             obj.addProperty("count", count);
             return obj;
         }

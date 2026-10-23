@@ -9,13 +9,9 @@ import java.util.Optional;
  * Version helpers for addon code that needs to gate AE2 Lightning Tech
  * integration behavior at runtime.
  *
- * <p>This branch targets AE2LT's 26.1.2 NeoForge port line
- * ({@code 1.0.1alpha-26.1.2neoforge}). That port keeps the first-party
- * lightning capability/event contracts and the public wireless frequency API
- * introduced by the stable 1.0.x line, but its version string no longer sorts
- * cleanly against the earlier semantic-style releases. The helpers below treat
- * the verified 26.1.2 port as feature-compatible with the checked 1.0.10 API
- * surface.</p>
+ * <p>The 26.1.2 build retains the 1.0.12 public API, including pattern-provider
+ * UI profiles. Legacy alpha builds retain their original 1.0.10 feature level;
+ * they must not advertise contracts added after that release.</p>
  *
  * @since 1.0.4
  */
@@ -25,10 +21,12 @@ public final class AE2LTVersion {
     public static final String LIBRARY_API_VERSION = AE2LTCapabilities.API_VERSION;
 
     /** AE2 Lightning Tech port release this Thunderbolt_lib branch was checked against. */
-    public static final String TARGET_AE2LT_VERSION = "1.0.2alpha-26.1.2neoforge";
+    public static final String TARGET_AE2LT_VERSION = "2.1.2-beta3-viking602.1+26.1.2";
 
     /** Latest stable AE2LT release line whose public API shape was also reviewed. */
-    public static final String LAST_VERIFIED_STABLE_AE2LT_VERSION = "1.0.10";
+    public static final String LAST_VERIFIED_STABLE_AE2LT_VERSION = "1.0.12";
+
+    private static final String LEGACY_PORT_API_VERSION = "1.0.10";
 
     /** First AE2LT release line that exposed the native first-party API package. */
     public static final String FIRST_PARTY_API_INTRODUCED_VERSION = "1.0.2";
@@ -46,6 +44,9 @@ public final class AE2LTVersion {
 
     /** AE2LT release line that introduced the public wireless frequency API. */
     public static final String PUBLIC_FREQUENCY_API_INTRODUCED_VERSION = "1.0.8";
+
+    /** AE2LT release line that introduced the public pattern-provider UI profile API. */
+    public static final String PATTERN_PROVIDER_UI_PROFILE_INTRODUCED_VERSION = "1.0.11";
 
     private static final String AE2LT_MOD_ID = "ae2lt";
 
@@ -112,6 +113,10 @@ public final class AE2LTVersion {
         return isLoadedAE2LTAtLeast(PUBLIC_FREQUENCY_API_INTRODUCED_VERSION);
     }
 
+    public static boolean isLoadedAE2LTAtLeastPatternProviderUiProfile() {
+        return isLoadedAE2LTAtLeast(PATTERN_PROVIDER_UI_PROFILE_INTRODUCED_VERSION);
+    }
+
     /**
      * Returns whether {@code version} is in the verified first-party API range.
      * Future AE2LT versions may still work, but are intentionally not reported as
@@ -125,20 +130,16 @@ public final class AE2LTVersion {
 
     /** Returns whether {@code version} is the verified 26.1.2 NeoForge port line. */
     public static boolean isVerifiedPortVersion(String version) {
-        return version != null && version.contains("26.1.2neoforge");
+        return version != null && (version.contains("26.1.2neoforge")
+                || version.equals(TARGET_AE2LT_VERSION));
     }
 
     private static int compareFeatureAwareVersions(String loadedVersion, String minimumVersion) {
-        if (isVerifiedPortVersion(loadedVersion)) {
-            if (isVerifiedPortVersion(minimumVersion)) {
-                return 0;
-            }
-            if (compareDottedVersions(minimumVersion, LAST_VERIFIED_STABLE_AE2LT_VERSION) <= 0) {
-                return 1;
-            }
+        if (loadedVersion != null && loadedVersion.contains("26.1.2neoforge")) {
+            loadedVersion = LEGACY_PORT_API_VERSION;
         }
-        if (isVerifiedPortVersion(minimumVersion)) {
-            return isVerifiedPortVersion(loadedVersion) ? 0 : -1;
+        if (minimumVersion != null && minimumVersion.contains("26.1.2neoforge")) {
+            minimumVersion = LEGACY_PORT_API_VERSION;
         }
         return compareDottedVersions(loadedVersion, minimumVersion);
     }
@@ -165,7 +166,7 @@ public final class AE2LTVersion {
     }
 
     private static int[] parseVersion(String version) {
-        String[] rawParts = version == null ? new String[0] : version.split("\\.");
+        String[] rawParts = version == null ? new String[0] : version.split("[-+]", 2)[0].split("\\.");
         int[] parts = new int[rawParts.length];
         for (int i = 0; i < rawParts.length; i++) {
             parts[i] = parseLeadingInt(rawParts[i]);

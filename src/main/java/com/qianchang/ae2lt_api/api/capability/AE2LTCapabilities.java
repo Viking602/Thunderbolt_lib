@@ -16,8 +16,8 @@ import org.jetbrains.annotations.Nullable;
  * Chamber, Overload Processing Factory, Tesla Coil) automatically query this
  * capability when looking for lightning energy sources or sinks adjacent to them.</p>
  *
- * <h2>Relationship to the AE2LT 26.1.2 port's first-party API</h2>
- * <p>AE2LT 1.0.2+ and the verified 26.1.2 NeoForge port expose their own first-party capability under the
+ * <h2>Relationship to AE2LT 1.0.11's first-party API</h2>
+ * <p>AE2LT 1.0.2+ exposes its own first-party capability under the
  * {@code ae2lt} namespace ({@code com.moakiee.ae2lt.api.AE2LTCapabilities}). The two
  * capability IDs are deliberately distinct ({@code ae2lt_api:lightning_energy}
  * vs {@code ae2lt:lightning_energy}); see
@@ -36,10 +36,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class AE2LTCapabilities {
 
-    private static final String MOD_ID = "ae2lt_api";
-
-    /** Current API version for the 26.1.2 NeoForge migration branch. */
-        public static final String API_VERSION = "1.0.2-alpha.26.1.2neoforge";
+    /** Current API version — bump when new public API surface is introduced. */
+    public static final String API_VERSION = "1.0.12-hotfix1";
 
     /**
      * Sided block capability for lightning energy I/O.
@@ -50,7 +48,8 @@ public final class AE2LTCapabilities {
      */
     public static final BlockCapability<ILightningEnergyHandler, @Nullable Direction> LIGHTNING_ENERGY_BLOCK =
             BlockCapability.createSided(
-                    net.minecraft.resources.Identifier.fromNamespaceAndPath(MOD_ID, "lightning_energy"),
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                            "ae2lt_api", "lightning_energy"),
                     ILightningEnergyHandler.class);
 
     /**
@@ -60,7 +59,8 @@ public final class AE2LTCapabilities {
      */
     public static final ItemCapability<ILightningEnergyHandler, Void> LIGHTNING_ENERGY_ITEM =
             ItemCapability.createVoid(
-                    net.minecraft.resources.Identifier.fromNamespaceAndPath(MOD_ID, "lightning_energy_item"),
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                            "ae2lt_api", "lightning_energy_item"),
                     ILightningEnergyHandler.class);
 
     private AE2LTCapabilities() {}

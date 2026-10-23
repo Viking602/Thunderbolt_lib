@@ -86,15 +86,9 @@ final class AE2LTReflection {
     }
 
     static long getStoredInGrid(BlockEntity blockEntity, LightningEnergyTier tier) {
-        Object cachedInventory = getCachedGridInventory(blockEntity);
-        if (cachedInventory == null) {
-            return 0L;
-        }
-        Object key = getLightningKey(tier);
-        if (!isInstanceOf(key, AE_KEY_CLASS)) {
-            return 0L;
-        }
-        return invokeCachedStorageRead(cachedInventory, key);
+        // The network's display cache can lag an insert/extract in this same tick.
+        // Preserve the 1.21 API contract by querying the actual extractable ledger.
+        return extractFromGrid(blockEntity, tier, Long.MAX_VALUE, true);
     }
 
     static long extractFromGrid(BlockEntity blockEntity, LightningEnergyTier tier, long amount, boolean simulate) {
@@ -284,7 +278,6 @@ final class AE2LTReflection {
             Method getStorageService = resolveRequiredMethod(gridClass, "getStorageService");
             Class<?> storageServiceClass = getStorageService.getReturnType();
             resolveRequiredMethod(storageServiceClass, "getInventory");
-            resolveRequiredMethod(storageServiceClass, "getCachedInventory");
             resolveRequiredMethod(actionSourceClass, "ofMachine", actionHostClass);
             resolveRequiredMethod(meStorageClass, "insert", aeKeyClass, long.class, actionableClass, actionSourceClass);
             resolveRequiredMethod(meStorageClass, "extract", aeKeyClass, long.class, actionableClass, actionSourceClass);
@@ -339,23 +332,6 @@ final class AE2LTReflection {
             return isInstanceOf(inventory, ME_STORAGE_CLASS) ? inventory : null;
         } catch (IllegalStateException e) {
             AE2LTAddonFramework.LOGGER.debug("[AE2LT API] Failed to access AE2LT grid storage bridge: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    private static Object getCachedGridInventory(BlockEntity blockEntity) {
-        try {
-            Object grid = resolveGrid(blockEntity);
-            if (grid == null) {
-                return null;
-            }
-            Object storageService = invoke(grid, "getStorageService", new Class<?>[0]);
-            if (storageService == null) {
-                return null;
-            }
-            return invoke(storageService, "getCachedInventory", new Class<?>[0]);
-        } catch (IllegalStateException e) {
-            AE2LTAddonFramework.LOGGER.debug("[AE2LT API] Failed to access AE2LT cached grid inventory bridge: {}", e.getMessage());
             return null;
         }
     }
@@ -432,26 +408,13 @@ final class AE2LTReflection {
             if (keyClass == null || actionableClass == null || actionSourceClass == null) {
                 return 0L;
             }
-            Method method = storage.getClass().getMethod(methodName, keyClass, long.class, actionableClass, actionSourceClass);
+            // Invoke the public storage contract even when the concrete implementation is private.
+            Method method = requireClass(ME_STORAGE_CLASS).getMethod(
+                    methodName, keyClass, long.class, actionableClass, actionSourceClass);
             Object value = method.invoke(storage, key, amount, actionable, source);
             return value instanceof Number number ? number.longValue() : 0L;
         } catch (ReflectiveOperationException | RuntimeException e) {
             AE2LTAddonFramework.LOGGER.debug("[AE2LT API] Failed to invoke AppEng MEStorage#{} reflectively.", methodName, e);
-            return 0L;
-        }
-    }
-
-    private static long invokeCachedStorageRead(Object cachedInventory, Object key) {
-        try {
-            Class<?> keyClass = loadClass(AE_KEY_CLASS);
-            if (keyClass == null) {
-                return 0L;
-            }
-            Method method = cachedInventory.getClass().getMethod("get", keyClass);
-            Object value = method.invoke(cachedInventory, key);
-            return value instanceof Number number ? number.longValue() : 0L;
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            AE2LTAddonFramework.LOGGER.debug("[AE2LT API] Failed to read AppEng cached inventory reflectively.", e);
             return 0L;
         }
     }
@@ -473,6 +436,15 @@ final class AE2LTReflection {
     }
 
     private static Method lookupMethod(Class<?> type, String name, Class<?>... parameterTypes) {
+        try {
+            // AE2 26.1 inherits helpers such as IGrid#getStorageService as interface defaults.
+            // A superclass-only walk misses them even though the public contract is present.
+            Method method = type.getMethod(name, parameterTypes);
+            method.setAccessible(true);
+            return method;
+        } catch (NoSuchMethodException ignored) {
+            // Internal compatibility hooks may still be non-public.
+        }
         Class<?> current = type;
         while (current != null) {
             try {
